@@ -1,0 +1,7 @@
+{
+  "appId": "com.aw1928278955.massagehours",
+  "appName": "課堂時數抽成記錄",
+  "webDir": "www",
+  "backgroundColor": "#0b0e12",
+  "server": { "androidScheme": "https" }
+}

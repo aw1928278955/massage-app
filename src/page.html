@@ -1,0 +1,1041 @@
+<title>課堂時數抽成記錄</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+<style>
+/* Layout: one compact column. Summary first, then entry, records, history, take-home trial. Dark navy with gold, sized for a phone held in one hand. */
+:root {
+  --bg: #0b0e12;
+  --bg-in: #090c10;
+  --card: #172024;
+  --card-hi: #1d2a2f;
+  --line: #2a3843;
+  --fg: #eef0f2;
+  --mute: #98a4ac;
+  --gold: #cdae63;
+  --gold-btn: #c9a85c;
+  --gold-ink: #1b1408;
+  --gold-wash: #211b13;
+  --danger: #e58b7c;
+  --ok: #86c9a4;
+  --font: "Noto Sans TC", system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #eef1f3; --bg-in: #f7f9fa; --card: #ffffff; --card-hi: #f1f5f7; --line: #d3dce2;
+    --fg: #12181c; --mute: #566670; --gold: #7d5f17; --gold-btn: #c9a85c; --gold-ink: #1b1408;
+    --gold-wash: #fbf4e2; --danger: #b3412f; --ok: #2c7a55;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #eef1f3; --bg-in: #f7f9fa; --card: #ffffff; --card-hi: #f1f5f7; --line: #d3dce2;
+  --fg: #12181c; --mute: #566670; --gold: #7d5f17; --gold-btn: #c9a85c; --gold-ink: #1b1408;
+  --gold-wash: #fbf4e2; --danger: #b3412f; --ok: #2c7a55;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font: 400 14px/1.5 var(--font);
+  padding-block: 20px 40px;
+  padding-left: max(14px, env(safe-area-inset-left, 0px));
+  padding-right: max(14px, env(safe-area-inset-right, 0px));
+  font-variant-numeric: tabular-nums;
+}
+.wrap { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+h1 { margin: 0 0 2px; font-size: 22px; line-height: 1.25; font-weight: 900; text-wrap: balance; }
+h2 { margin: 0; font-size: 16px; font-weight: 700; }
+.muted { color: var(--mute); }
+.small { font-size: 12px; }
+.sync { margin: 0; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); font-size: 12px; color: var(--mute); }
+.sync[data-s="err"] { border-color: var(--danger); color: var(--danger); }
+
+.lbl { display: block; margin: 0 0 6px; font-weight: 700; font-size: 13px; }
+.lbl.light { font-weight: 400; color: var(--mute); }
+.in, select.in {
+  width: 100%; min-height: 42px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--bg-in); color: var(--fg); font: inherit; font-size: 15px;
+}
+select.in { appearance: none; -webkit-appearance: none; padding-right: 32px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--mute) 50%), linear-gradient(135deg, var(--mute) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+.in:focus-visible, button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.pickers { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 8px; }
+.btn-line {
+  min-height: 42px; padding: 0 14px; border-radius: 12px; border: 1.5px solid var(--gold); background: transparent;
+  color: var(--gold); font: 700 14px var(--font); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-line.wide { grid-column: 1 / -1; }
+.btn-line.sm { min-height: 34px; padding: 0 12px; font-size: 13px; border-width: 1px; border-radius: 10px; }
+.btn-gold {
+  width: 100%; min-height: 46px; border: 0; border-radius: 23px; background: var(--gold-btn); color: var(--gold-ink);
+  font: 700 15px var(--font); cursor: pointer;
+}
+.btn-gold:disabled, .btn-line:disabled { opacity: .45; cursor: not-allowed; }
+.btn-ghost { min-height: 42px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: var(--fg); font: 500 14px var(--font); cursor: pointer; }
+.btn-danger { color: var(--danger); border-color: var(--danger); }
+
+.panel { border: 1px solid var(--line); border-radius: 18px; background: var(--card); padding: 16px 14px; }
+.panel.table { background: var(--bg-in); padding: 12px 10px 6px; }
+.ph { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 4px 10px; }
+.pbtns { display: flex; gap: 8px; flex-wrap: wrap; }
+.tscroll { max-height: 56vh; overflow: auto; overscroll-behavior: contain; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 8px 6px; text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+thead th { position: sticky; top: 0; background: var(--card-hi); font-weight: 700; z-index: 1; }
+tbody tr + tr td { border-top: 1px solid var(--line); }
+tr.cat td { color: var(--gold); font-weight: 700; padding-top: 14px; border-top: 0 !important; }
+tr.none td { color: var(--mute); text-align: left; }
+.mini { min-height: 30px; padding: 0 10px; border-radius: 9px; border: 1px solid var(--gold); background: transparent; color: var(--gold); font: 700 12px var(--font); cursor: pointer; }
+
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat { border: 1px solid var(--line); border-radius: 16px; background: var(--card); padding: 12px 14px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.stat.main { background: var(--gold-wash); border-color: var(--gold); }
+.stat .k { color: var(--mute); font-size: 13px; }
+.stat .v { font-size: 26px; font-weight: 900; line-height: 1.2; overflow-wrap: anywhere; }
+.stat .v small { font-size: 13px; font-weight: 500; color: var(--mute); margin-left: 4px; }
+.stat.main .v { color: var(--gold); }
+.stat .n { color: var(--mute); font-size: 12px; }
+
+.card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.chip { min-height: 40px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg-in); color: var(--mute); font: 700 14px var(--font); cursor: pointer; }
+.chip[aria-pressed="true"] { border-color: var(--gold); background: var(--gold-wash); color: var(--gold); }
+.field { margin-bottom: 12px; }
+.row2 { display: grid; grid-template-columns: minmax(0, 1fr) 80px; gap: 10px; margin-bottom: 10px; align-items: start; }
+.chk { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; font-weight: 700; font-size: 14px; cursor: pointer; }
+.chk input, .opt input { appearance: none; -webkit-appearance: none; width: 24px; height: 24px; margin: 0; border-radius: 7px; border: 1.5px solid var(--mute); background: var(--bg-in); display: grid; place-content: center; cursor: pointer; flex: none; }
+.chk input:checked, .opt input:checked { background: var(--gold-btn); border-color: var(--gold-btn); }
+.chk input:checked::after, .opt input:checked::after { content: ""; width: 6px; height: 11px; border: solid var(--gold-ink); border-width: 0 2.5px 2.5px 0; transform: rotate(45deg) translate(-1px, -1px); }
+.chk input:focus-visible, .opt input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.info { margin: 0 0 12px; color: var(--mute); font-size: 13px; display: flex; flex-direction: column; gap: 3px; }
+.hint { color: var(--gold); }
+
+.meter { margin-top: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg-in); padding: 12px 14px; }
+.meter .top { display: flex; justify-content: space-between; gap: 10px; font-weight: 700; font-size: 14px; flex-wrap: wrap; }
+.bar { height: 8px; border-radius: 4px; background: var(--line); margin-top: 10px; overflow: hidden; }
+.bar span { display: block; height: 100%; min-width: 8px; border-radius: 4px; background: var(--gold-btn); }
+.settle-note { margin: 8px 0 0; text-align: center; color: var(--mute); font-size: 12px; }
+
+.day { width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 14px; background: var(--bg-in); color: var(--fg); padding: 10px 12px; cursor: pointer; font: inherit; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 2px 10px; align-items: center; }
+.day .d { font-size: 16px; font-weight: 700; line-height: 1.2; }
+.day .w { color: var(--mute); font-size: 12px; }
+.day .mid b { font-size: 14px; }
+.day .mid div { color: var(--mute); font-size: 12px; }
+.day .amt { text-align: right; font-weight: 700; font-size: 16px; }
+.day .amt div { font-size: 12px; color: var(--mute); font-weight: 500; }
+.day .pm { color: var(--gold); font-size: 18px; line-height: 1; width: 16px; text-align: center; }
+.list { display: flex; flex-direction: column; gap: 8px; }
+.recs { margin: -2px 6px 2px; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 12px 12px; padding: 2px 12px; background: var(--bg-in); }
+.rec { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 8px 0; font-size: 13px; }
+.rec + .rec { border-top: 1px solid var(--line); }
+.rec .sub2 { color: var(--mute); font-size: 12px; }
+.rec .a { font-weight: 700; }
+.empty { border: 1px dashed var(--line); border-radius: 14px; padding: 22px 14px; text-align: center; color: var(--mute); font-size: 13px; }
+.empty b { display: block; color: var(--fg); font-size: 14px; margin-bottom: 2px; }
+
+.hist-month { margin: 6px 0; display: flex; justify-content: space-between; font-weight: 700; font-size: 14px; }
+.hist-month span:last-child { color: var(--gold); }
+.hp { width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-in); color: var(--fg); padding: 10px 12px; cursor: pointer; font: inherit; display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.hp .t { font-weight: 700; font-size: 14px; }
+.hp .s { color: var(--mute); font-size: 12px; }
+.hp .m { text-align: right; font-weight: 700; font-size: 14px; }
+.hp .m div { color: var(--mute); font-weight: 400; font-size: 12px; }
+
+.opt { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--line); border-radius: 14px; background: var(--bg-in); padding: 12px; margin-bottom: 10px; cursor: pointer; }
+.opt input { margin-top: 1px; background: var(--card); }
+.opt b { font-size: 15px; }
+.opt p { margin: 1px 0 0; color: var(--mute); font-size: 12px; }
+.ded { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; margin: 14px 0 10px; }
+.ded .field { margin: 0; }
+.ded-foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-bottom: 14px; color: var(--mute); font-size: 12px; flex-wrap: wrap; }
+.result { border: 1.5px solid var(--gold); border-radius: 16px; background: var(--gold-wash); padding: 14px; color: var(--gold); }
+.result .head { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+.result .head span:last-child { text-align: right; white-space: nowrap; }
+.result .big { font-size: 30px; font-weight: 900; color: var(--fg); margin: 2px 0 6px; line-height: 1.2; }
+.result .calc { font-size: 12px; color: var(--mute); margin: 0; }
+
+.veil { position: fixed; inset: 0; background: rgba(4, 6, 8, .66); display: flex; align-items: flex-end; justify-content: center;
+  padding: 14px max(14px, env(safe-area-inset-right, 0px)) max(14px, env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)); z-index: 30; overflow: auto; }
+.sheet { width: 100%; max-width: 480px; background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 18px 16px; margin-block: auto; }
+.sheet h3 { margin: 0 0 4px; font-size: 17px; }
+.sheet .acts { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.sheet .acts > * { flex: 1 1 100px; }
+.sheet .acts .btn-gold { width: auto; min-height: 42px; border-radius: 12px; }
+.ta { height: auto; min-height: 120px; padding: 10px 12px; font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; resize: vertical; word-break: break-all; }
+.err { color: var(--danger); font-size: 13px; margin: 8px 0 0; }
+.err:empty { display: none; }
+#toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(18px, env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 9px 16px; border-radius: 999px; font-weight: 700; font-size: 13px; z-index: 40; max-width: calc(100vw - 28px); text-align: center; }
+@media (prefers-reduced-motion: no-preference) { .veil { animation: fade .15s ease-out; } @keyframes fade { from { opacity: 0; } } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>課堂時數抽成記錄</h1>
+  </header>
+  <p class="sync" id="sync" data-s="ok" hidden></p>
+
+  <section aria-label="統計期別">
+    <div class="pickers">
+      <input class="in" type="month" id="vMonth" aria-label="統計月份">
+      <select class="in" id="vPeriod" aria-label="期別">
+        <option value="1">第一期（1–15日）</option>
+        <option value="2">第二期（16日至月底）</option>
+      </select>
+      <button class="btn-line wide" id="btnTable" aria-expanded="false" aria-controls="priceBox">抽成一覽表 <span id="tblPm" aria-hidden="true">＋</span></button>
+    </div>
+  </section>
+
+  <section class="panel table" id="priceBox" hidden>
+    <div class="ph">
+      <h2>課程時間與佣金</h2>
+      <div class="pbtns">
+        <button class="btn-line sm" id="btnItemNew">新增課堂資料</button>
+        <button class="btn-line sm" id="btnItemEdit" aria-pressed="false">編輯</button>
+      </div>
+    </div>
+    <div class="tscroll">
+      <table>
+        <thead id="priceHead"></thead>
+        <tbody id="priceBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="stats" aria-label="本期統計">
+    <div class="stat main"><span class="k">本期總抽成</span><span class="v" id="sTotal">$0</span><span class="n" id="sRate">目前採用 60% 抽成</span></div>
+    <div class="stat"><span class="k">本期課堂時數</span><span class="v" id="sHours">0<small>小時</small></span><span class="n" id="sMins">累積 0 分鐘</span></div>
+    <div class="stat"><span class="k">服務堂數</span><span class="v" id="sQty">0<small>堂</small></span></div>
+    <div class="stat"><span class="k">本期累計勞點數</span><span class="v" id="sPts">0<small>點</small></span></div>
+  </section>
+
+  <section class="panel" id="addCard">
+    <div class="card-head"><h2>新增課程紀錄</h2></div>
+    <div class="field"><label class="lbl" for="fDate">服務日期</label><input class="in" type="date" id="fDate"></div>
+    <span class="lbl" id="catLbl">課程分類</span>
+    <div class="chips" role="group" aria-labelledby="catLbl" id="fCats"></div>
+    <div class="row2">
+      <div><label class="lbl" for="fItem">課程項目</label><select class="in" id="fItem"></select></div>
+      <div><label class="lbl" for="fQty">堂數</label><input class="in" type="number" id="fQty" min="1" max="99" step="1" value="1" inputmode="numeric"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin:-2px 0 6px"><label class="chk"><input type="checkbox" id="fLabor">勞點</label></div>
+    <div class="info"><span id="fTime"></span><span id="fPay"></span><span class="hint" id="fHint" hidden></span></div>
+    <button class="btn-gold" id="btnAdd">＋ 新增課程紀錄</button>
+    <p class="err" id="fErr" role="alert"></p>
+
+    <div class="meter">
+      <div class="top"><span id="mLbl">距離 75 小時門檻</span><span id="mVal">75 小時</span></div>
+      <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="75" id="mBar"><span id="mFill"></span></div>
+    </div>
+    <button class="btn-line" id="btnSettle" style="width:100%;margin-top:12px">手動結算</button>
+    <p class="settle-note" id="settleNote"></p>
+  </section>
+
+  <section class="panel">
+    <div class="card-head"><h2>課程紀錄</h2><span class="muted small" id="listMeta"></span></div>
+    <div class="list" id="list"></div>
+  </section>
+
+  <section class="panel">
+    <div class="card-head"><h2>歷史紀錄</h2></div>
+    <div id="hist"></div>
+  </section>
+
+  <section class="panel">
+    <div class="card-head"><h2>實領試算</h2></div>
+    <label class="lbl light" for="tSel">試算期別</label>
+    <select class="in" id="tSel" style="margin-bottom:12px"></select>
+    <label class="opt" for="tLabor"><input type="checkbox" id="tLabor"><span><b id="tLaborT">勞點加給 +$0</b><p id="tLaborD"></p></span></label>
+    <label class="opt" for="tAtt"><input type="checkbox" id="tAtt"><span><b id="tAttT">全勤獎金 +$0</b><p>勾選後加入 $1,000</p></span></label>
+    <div class="ded">
+      <div class="field"><label class="lbl light" for="tIns">團保費</label><input class="in" type="number" id="tIns" min="0" step="any" inputmode="decimal" value="0"></div>
+      <div class="field"><label class="lbl light" for="tHealth">勞健保費</label><input class="in" type="number" id="tHealth" min="0" step="any" inputmode="decimal" value="0"></div>
+      <label class="chk" style="grid-column:1/-1;margin-top:-2px"><input type="checkbox" id="tFixed">團保、勞健保每月固定，扣在第二期</label>
+      <p class="muted small" id="tFixedNote" style="grid-column:1/-1;margin:-4px 0 0" hidden></p>
+      <div class="field"><label class="lbl light" for="tWelfare">福利金</label><input class="in" type="number" id="tWelfare" min="0" step="any" inputmode="decimal" value="0"></div>
+    </div>
+    <div class="ded-foot"><span>扣項預設為 $0</span><button class="btn-line sm" id="btnSaveDed">保存扣項</button></div>
+    <div class="result">
+      <div class="head"><span id="rTitle"></span><span id="rComm"></span></div>
+      <div class="big" id="rNet">$0</div>
+      <p class="calc" id="rCalc"></p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="card-head"><h2>資料備份</h2></div>
+    <div class="pbtns">
+      <button class="btn-line sm" id="btnExport">匯出備份</button>
+      <button class="btn-line sm" id="btnImport">匯入還原</button>
+    </div>
+    <div id="bkBox" hidden style="margin-top:12px">
+      <p class="muted small" id="bkHelp" style="margin:0 0 8px"></p>
+      <textarea class="in ta" id="bkText" rows="6" spellcheck="false" autocomplete="off" aria-label="備份文字"></textarea>
+      <div class="acts" style="margin-top:10px">
+        <button class="btn-ghost" id="bkClose">收起</button>
+        <button class="btn-gold" id="bkCopy">複製</button>
+        <button class="btn-gold" id="bkShare" hidden>分享</button>
+        <button class="btn-gold" id="bkRestore" hidden>還原</button>
+      </div>
+      <p class="err" id="bkErr" role="alert"></p>
+    </div>
+  </section>
+</div>
+
+<!-- 修改課程紀錄 -->
+<div class="veil" id="editVeil" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="eTitle">
+    <h3 id="eTitle">修改課程紀錄</h3>
+    <div class="field" style="margin-top:12px"><label class="lbl" for="eDate">服務日期</label><input class="in" type="date" id="eDate"></div>
+    <span class="lbl" id="eCatLbl">課程分類</span>
+    <div class="chips" role="group" aria-labelledby="eCatLbl" id="eCats"></div>
+    <div class="row2">
+      <div><label class="lbl" for="eItem">課程項目</label><select class="in" id="eItem"></select></div>
+      <div><label class="lbl" for="eQty">堂數</label><input class="in" type="number" id="eQty" min="1" max="99" step="1" inputmode="numeric"></div>
+    </div>
+    <label class="chk"><input type="checkbox" id="eLabor">勞點</label>
+    <div class="field" style="margin-top:10px"><label class="lbl" for="eCustom">自訂本筆抽成總額</label><input class="in" type="number" id="eCustom" min="0" step="any" inputmode="decimal" placeholder="留空自動計算"></div>
+    <p class="err" id="eErr" role="alert"></p>
+    <div class="acts">
+      <button class="btn-ghost" id="eCancel">取消</button>
+      <button class="btn-gold" id="eSave">儲存修改</button>
+      <button class="btn-ghost btn-danger" id="eDel">刪除此筆</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增／修改課堂項目 -->
+<div class="veil" id="itemVeil" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="iTitle">
+    <h3 id="iTitle">新增課堂資料</h3>
+    <span class="lbl" id="iCatLbl" style="margin-top:12px">分類</span>
+    <div class="chips" role="group" aria-labelledby="iCatLbl" id="iCats"></div>
+    <div class="field"><label class="lbl" for="iName">項目名稱</label><input class="in" type="text" id="iName" maxlength="20" placeholder="例如：腳50"></div>
+    <div class="field"><label class="lbl" for="iMin">時間（分鐘）</label><input class="in" type="number" id="iMin" min="1" max="600" step="1" inputmode="numeric"></div>
+    <div class="ded" style="margin:0">
+      <div class="field"><label class="lbl" for="iA">60% 抽成（元）</label><input class="in" type="number" id="iA" min="0" step="any" inputmode="decimal"></div>
+      <div class="field"><label class="lbl" for="iB">65% 抽成（元）</label><input class="in" type="number" id="iB" min="0" step="any" inputmode="decimal" placeholder="留空自動換算"></div>
+    </div>
+    <p class="err" id="iErr" role="alert"></p>
+    <p class="muted small" id="iNote" style="margin:8px 0 0" hidden></p>
+    <div class="acts">
+      <button class="btn-ghost" id="iCancel">取消</button>
+      <button class="btn-gold" id="iSave">儲存</button>
+      <button class="btn-ghost btn-danger" id="iDel" hidden>刪除項目</button>
+    </div>
+  </div>
+</div>
+
+<div class="veil" id="setVeil" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sTitle">
+    <h3 id="sTitle">確認手動結算</h3>
+    <p class="muted" id="sBody" style="margin:6px 0 0">請點擊兩次「確認結算」才會正式封存。</p>
+    <div class="acts">
+      <button class="btn-ghost" id="sCancel">取消</button>
+      <button class="btn-gold" id="sOk">確認結算（1/2）</button>
+    </div>
+  </div>
+</div>
+<div id="toast" role="status" hidden></div>
+
+<script id="logic">
+/* ---------- 預設價目表（照原網頁截圖）---------- */
+var ITEMS_DEFAULT = [
+  {id:'j30',  cat:'腳',   name:'腳30',  min:30,  a:210, b:227.6},
+  {id:'j60',  cat:'腳',   name:'腳60',  min:60,  a:420, b:455},
+  {id:'j80',  cat:'腳',   name:'腳80',  min:80,  a:575, b:623.4},
+  {id:'j90',  cat:'腳',   name:'腳90',  min:90,  a:630, b:682.6},
+  {id:'j100', cat:'腳',   name:'腳100', min:100, a:720, b:780},
+  {id:'y30',  cat:'腳',   name:'孕腳30', min:30, a:225, b:244},
+  {id:'y60',  cat:'腳',   name:'孕腳60／孕腳', min:60, a:450, b:488},
+  {id:'jt',   cat:'腳',   name:'腳體驗', min:40,  a:280, b:304},
+  {id:'z90',  cat:'腳',   name:'早鳥90', min:90,  a:575, b:623.4},
+  {id:'s30',  cat:'身體', name:'身30',  min:30,  a:225, b:244},
+  {id:'s60',  cat:'身體', name:'身60',  min:60,  a:450, b:487.6},
+  {id:'s90',  cat:'身體', name:'身90',  min:90,  a:675, b:731.3},
+  {id:'s120', cat:'身體', name:'身120', min:120, a:900, b:975},
+  {id:'st',   cat:'身體', name:'身體驗', min:40,  a:300, b:322},
+  {id:'o30',  cat:'身體', name:'身體油30', min:30, a:240, b:260},
+  {id:'o60',  cat:'身體', name:'油60',  min:60,  a:480, b:520},
+  {id:'o90',  cat:'身體', name:'油90',  min:90,  a:720, b:780},
+  {id:'o120', cat:'身體', name:'油120', min:120, a:960, b:1040},
+  {id:'h20',  cat:'其他', name:'頭療',  min:20,  a:140, b:151}
+];
+var CATS = ['腳', '身體', '其他'];
+var ITEMS = [], BY_ID = {};
+function setItems(list) { ITEMS = list; BY_ID = {}; list.forEach(function (i) { BY_ID[i.id] = i; }); }
+function defaultItems() { return ITEMS_DEFAULT.map(function (i) { return {id: i.id, cat: i.cat, name: i.name, min: i.min, a: i.a, b: i.b}; }); }
+setItems(defaultItems());
+var THRESHOLD_MIN = 75 * 60;
+var ATT_BONUS = 1000;
+
+function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
+function pad(n) { return String(n).padStart(2, '0'); }
+function r2(x) { return Math.round(x * 100) / 100; }
+function money(x) {
+  x = r2(x); var neg = x < 0; x = Math.abs(x);
+  var s = Number.isInteger(x) ? x.toLocaleString('en-US') : x.toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 2});
+  return (neg ? '-$' : '$') + s;
+}
+function dur(m) {
+  var h = Math.floor(m / 60), mm = m % 60;
+  if (h && mm) return h + ' 小時 ' + mm + ' 分';
+  if (h) return h + ' 小時';
+  return mm + ' 分';
+}
+function periodOf(ds) { var p = ds.split('-').map(Number); return p[0] + '-' + pad(p[1]) + '-' + (p[2] <= 15 ? 1 : 2); }
+function keyParts(k) { var p = k.split('-').map(Number); return {y: p[0], m: p[1], p: p[2]}; }
+function periodLabel(k) { var t = keyParts(k); return t.y + ' / ' + t.m + '・第' + (t.p === 1 ? '一' : '二') + '期'; }
+function settleTime(k) {
+  var t = keyParts(k);
+  return t.p === 1 ? new Date(t.y, t.m - 1, 16, 6, 0, 0) : new Date(t.y, t.m, 1, 6, 0, 0);
+}
+function fmtDate(d) { return d.getFullYear() + '/' + pad(d.getMonth() + 1) + '/' + d.getDate(); }
+function todayStr() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function weekday(ds) { var p = ds.split('-').map(Number); return '週' + '日一二三四五六'[new Date(p[0], p[1] - 1, p[2]).getDay()]; }
+function laborBonus(pts) { return pts >= 15 ? 150 + (pts - 15) * 10 : 0; }
+function autoB(a) { return Math.round(a * 65 / 60 * 10) / 10; }
+
+/* 一期的計算：滿 75 小時 → 整期改 65%。已封存的紀錄用封存當時的名稱、時間、金額。 */
+function calc(records) {
+  var mins = 0, qty = 0, pts = 0;
+  var meta = records.map(function (r) {
+    var it = BY_ID[r.itemId];
+    var unitMin = r.imin != null ? r.imin : (it ? it.min : 0);
+    var name = r.iname != null ? r.iname : (it ? it.name : '已刪除項目');
+    mins += unitMin * r.qty; qty += r.qty; if (r.labor) pts += r.qty;
+    return {rec: r, item: it, unitMin: unitMin, name: name};
+  });
+  var rate = mins >= THRESHOLD_MIN ? 65 : 60, total = 0;
+  var rows = meta.map(function (m) {
+    var r = m.rec, unit = m.item ? (rate === 65 ? m.item.b : m.item.a) : 0;
+    var amt = r.amount != null ? r.amount : (r.custom != null ? r.custom : r2(unit * r.qty));
+    total += amt;
+    return {rec: r, item: m.item, name: m.name, unitMin: m.unitMin, amt: amt, mins: m.unitMin * r.qty};
+  });
+  return {mins: mins, qty: qty, pts: pts, rate: rate, total: r2(total), rows: rows};
+}
+function netPay(c, st, ins, health, welfare) {
+  var lb = st.labor ? laborBonus(c.pts) : 0, at = st.att ? ATT_BONUS : 0;
+  return {lb: lb, at: at, net: r2(c.total + lb + at - ins - health - welfare)};
+}
+</script>
+
+<script id="app">
+(function () {
+  var LS = 'massage-commission-v1';
+  var $ = function (s) { return document.querySelector(s); };
+  var state = null;
+  var view = {month: '', p: 1};
+  var formCat = '腳', editCat = '腳', editId = null;
+  var itemCat = '腳', itemId = null, editMode = false;
+  var openDays = {}, openHist = {};
+  var settleStep = 0;
+  var STANDALONE = !(window.claude && window.claude.use);   /* 手機 App／加入主畫面：資料存在這支手機 */
+  function noCloud() { if (STANDALONE) setSync('ok', ''); else setSync('nocloud', '目前只存在這個瀏覽器，清除瀏覽資料會遺失。'); }
+
+  /* ---------- 儲存：私人雲端優先，失敗則存在這個瀏覽器 ---------- */
+  var col = null, knownAt = {}, dirty = {}, writing = false, timer = null, retries = 0;
+
+  function defaultState() {
+    return {
+      v: 2, items: defaultItems(),
+      records: [{id: 'm1', date: '2026-10-16', itemId: 'j100', qty: 1, labor: true, custom: null}],
+      settled: {}, settings: {}, fixed: {on: false, ins: 0, health: 0}, lastCheck: Date.now()
+    };
+  }
+  function core() { return JSON.stringify({v: 2, items: state.items, records: state.records, settings: state.settings, fixed: state.fixed, lastCheck: state.lastCheck}); }
+  function setSync(s, t) {
+    var el = $('#sync'); el.dataset.s = s; el.textContent = t || '';
+    el.hidden = !(s === 'err' || s === 'nocloud');
+  }
+  function mark(id) { dirty[id] = true; clearTimeout(timer); timer = setTimeout(flush, 450); }
+  function markCore() { mark('state'); }
+  function markSettled(k) { mark('h_' + k); }
+  async function flush() {
+    if (writing) return;
+    var ids = Object.keys(dirty);
+    if (!ids.length) return;
+    writing = true;
+    try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {}
+    if (!col) { dirty = {}; writing = false; noCloud(); return; }
+    var failed = false;
+    for (var i = 0; i < ids.length; i++) {
+      var id = ids[i];
+      if (id !== 'state' && !state.settled[id.slice(2)]) { delete dirty[id]; continue; }
+      var json = id === 'state' ? core() : JSON.stringify(state.settled[id.slice(2)]);
+      var at = Date.now(); knownAt[id] = at;
+      try { await col.doc(id).set({json: json, at: at}); delete dirty[id]; }
+      catch (e) { failed = true; break; }
+    }
+    writing = false;
+    if (failed) {
+      retries++;
+      setSync('err', '雲端儲存失敗，目前先存在這個瀏覽器，會自動重試。');
+      if (retries < 4) { clearTimeout(timer); timer = setTimeout(flush, 8000); }
+    } else {
+      retries = 0; setSync('ok', '');
+      if (Object.keys(dirty).length) flush();
+    }
+  }
+  function parse(j) { try { return JSON.parse(j); } catch (e) { return null; } }
+  function readLocal() {
+    try { var s = parse(localStorage.getItem(LS)); if (s && s.records) { s.settled = s.settled || {}; s.settings = s.settings || {}; return s; } } catch (e) {}
+    return null;
+  }
+  async function initStore() {
+    var cloudDocs = null;
+    try {
+      if (window.claude && window.claude.use) {
+        var d = await window.claude.use('db'), u = await window.claude.use('user');
+        var uid = u ? await u.id() : null;
+        if (d && uid) {
+          var c = d.collection('data/users/' + uid);
+          var snap = await c.get();
+          col = c; cloudDocs = snap.docs;
+        }
+      }
+    } catch (e) { col = null; cloudDocs = null; }
+
+    var base = null, settled = {};
+    if (cloudDocs) {
+      cloudDocs.forEach(function (doc) {
+        var x = doc.data() || {}; var p = parse(x.json); knownAt[doc.id] = x.at || 0;
+        if (doc.id === 'state' && p) base = p;
+        else if (doc.id.indexOf('h_') === 0 && p) settled[doc.id.slice(2)] = p;
+      });
+    }
+    if (base) {
+      state = {v: 2, items: base.items || defaultItems(), records: base.records || [], settings: base.settings || {}, fixed: base.fixed, lastCheck: base.lastCheck || Date.now(), settled: settled};
+      if (!base.items && col) mark('state');
+    } else {
+      var loc = readLocal();
+      if (loc) { state = loc; if (col) { mark('state'); Object.keys(state.settled).forEach(markSettled); } }
+      else { state = defaultState(); if (col) mark('state'); }
+      Object.keys(settled).forEach(function (k) { state.settled[k] = settled[k]; });
+    }
+    if (!state.items) state.items = defaultItems();
+    if (!state.fixed) state.fixed = {on: false, ins: 0, health: 0};
+    setItems(state.items);
+    if (col) { setSync('ok', ''); col.onSnapshot(onRemote, function () {}); }
+    else noCloud();
+  }
+  function onRemote(snap) {
+    if (snap.metadata && snap.metadata.hasPendingWrites) return;
+    var changed = false;
+    snap.docs.forEach(function (doc) {
+      var x = doc.data() || {}, at = x.at || 0;
+      if (at <= (knownAt[doc.id] || 0)) return;
+      if (doc.id === 'state' && (dirty.state || writing)) return;
+      var p = parse(x.json); if (!p) return;
+      knownAt[doc.id] = at;
+      if (doc.id === 'state') {
+        state.records = p.records || []; state.settings = p.settings || {}; state.lastCheck = p.lastCheck || state.lastCheck;
+        if (p.fixed) state.fixed = p.fixed;
+        if (p.items) { state.items = p.items; setItems(state.items); }
+        changed = true;
+      } else if (doc.id.indexOf('h_') === 0) { state.settled[doc.id.slice(2)] = p; changed = true; }
+    });
+    if (changed) renderAll();
+  }
+
+  /* ---------- 期別與結算 ---------- */
+  function viewKey() { return view.month + '-' + view.p; }
+  function periodData(k) {
+    if (state.settled[k]) return {settled: true, records: state.settled[k].records, snap: state.settled[k]};
+    return {settled: false, records: state.records.filter(function (r) { return periodOf(r.date) === k; })};
+  }
+  function setting(k) {
+    var s = state.settings[k] || {};
+    return {labor: !!s.labor, att: !!s.att, ins: +s.ins || 0, health: +s.health || 0, welfare: +s.welfare || 0, ov: !!s.ov};
+  }
+  /* 團保、勞健保：勾選「每月固定」時，第二期自動帶固定金額、第一期為 0；該期自訂過或已結算則以該期為準。 */
+  function deductions(k) {
+    var s = setting(k), f = state.fixed || {};
+    if (state.settled[k] || !f.on || s.ov) return {ins: s.ins, health: s.health};
+    var p2 = keyParts(k).p === 2;
+    return {ins: p2 ? (+f.ins || 0) : 0, health: p2 ? (+f.health || 0) : 0};
+  }
+  function settlePeriod(k, auto) {
+    var pd = periodData(k);
+    if (pd.settled || !pd.records.length) return false;
+    var c = calc(pd.records);
+    var d = deductions(k), st = setting(k);
+    st.ins = d.ins; st.health = d.health; st.ov = true; state.settings[k] = st;
+    state.settled[k] = {
+      key: k, at: Date.now(), auto: !!auto,
+      records: c.rows.map(function (x) {
+        return {id: x.rec.id, date: x.rec.date, itemId: x.rec.itemId, iname: x.name, imin: x.unitMin, qty: x.rec.qty, labor: !!x.rec.labor, custom: x.rec.custom == null ? null : x.rec.custom, amount: x.amt};
+      })
+    };
+    state.records = state.records.filter(function (r) { return periodOf(r.date) !== k; });
+    markSettled(k); markCore();
+    return true;
+  }
+  function autoSettle(now) {
+    var keys = {}, changed = false;
+    state.records.forEach(function (r) { keys[periodOf(r.date)] = 1; });
+    Object.keys(keys).forEach(function (k) {
+      var t = settleTime(k).getTime();
+      if (t <= now && t > state.lastCheck) { if (settlePeriod(k, true)) changed = true; }
+    });
+    state.lastCheck = now;
+    return changed;
+  }
+
+  /* ---------- 畫面 ---------- */
+  var toastT;
+  function toast(t) { var el = $('#toast'); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { el.hidden = true; }, 2600); }
+  function liveItems(cat, keep) { return state.items.filter(function (i) { return i.cat === cat && (!i.del || i.id === keep); }); }
+
+  function renderPrice() {
+    $('#priceHead').innerHTML = '<tr><th>課程項目</th><th>時間</th><th>60% 抽成</th><th>65% 抽成</th>' + (editMode ? '<th></th>' : '') + '</tr>';
+    var cols = editMode ? 5 : 4, h = '';
+    CATS.forEach(function (c) {
+      var list = liveItems(c);
+      h += '<tr class="cat"><td colspan="' + cols + '">' + c + '</td></tr>';
+      if (!list.length) h += '<tr class="none"><td colspan="' + cols + '">尚無項目</td></tr>';
+      list.forEach(function (i) {
+        h += '<tr><td>' + esc(i.name) + '</td><td>' + i.min + ' 分鐘</td><td>' + money(i.a) + '</td><td>' + money(i.b) + '</td>' +
+          (editMode ? '<td><button type="button" class="mini" data-iedit="' + esc(i.id) + '">修改</button></td>' : '') + '</tr>';
+      });
+    });
+    $('#priceBody').innerHTML = h;
+    var b = $('#btnItemEdit'); b.textContent = editMode ? '完成' : '編輯'; b.setAttribute('aria-pressed', String(editMode));
+  }
+  function catChips(el, cur, attr) {
+    el.innerHTML = CATS.map(function (c) { return '<button type="button" class="chip" ' + attr + '="' + c + '" aria-pressed="' + (c === cur) + '">' + c + '</button>'; }).join('');
+  }
+  function fillItems(sel, cat, keep) {
+    var list = liveItems(cat, keep);
+    sel.innerHTML = list.length
+      ? list.map(function (i) { return '<option value="' + esc(i.id) + '">' + esc(i.name) + '｜' + i.min + ' 分鐘</option>'; }).join('')
+      : '<option value="">此分類沒有項目</option>';
+    if (keep && BY_ID[keep] && BY_ID[keep].cat === cat) sel.value = keep;
+  }
+
+  function renderStats() {
+    var pd = periodData(viewKey()), c = calc(pd.records);
+    $('#sTotal').textContent = money(c.total);
+    $('#sRate').textContent = c.rate === 65 ? '已達 75 小時，全期 65% 抽成' : '目前採用 60% 抽成';
+    $('#sHours').innerHTML = Math.floor(c.mins / 60) + '<small>小時</small>';
+    $('#sMins').textContent = '累積 ' + c.mins + ' 分鐘（' + dur(c.mins) + '）';
+    $('#sQty').innerHTML = c.qty + '<small>堂</small>';
+    $('#sPts').innerHTML = c.pts + '<small>點</small>';
+    var left = Math.max(0, THRESHOLD_MIN - c.mins);
+    $('#mLbl').textContent = left ? '距離 75 小時門檻' : '已達 75 小時門檻';
+    $('#mVal').textContent = left ? dur(left) : '全期 65%';
+    $('#mFill').style.width = Math.min(100, c.mins / THRESHOLD_MIN * 100) + '%';
+    $('#mBar').setAttribute('aria-valuenow', (c.mins / 60).toFixed(1));
+    var k = viewKey(), btn = $('#btnSettle'), note = $('#settleNote');
+    btn.textContent = '手動結算 ' + periodLabel(k);
+    if (pd.settled) { btn.disabled = true; note.textContent = '此期已於 ' + fmtDate(new Date(pd.snap.at)) + (pd.snap.auto ? ' 自動' : ' 手動') + '結算封存。'; }
+    else if (!pd.records.length) { btn.disabled = true; note.textContent = '目前沒有待結算課程'; }
+    else { btn.disabled = false; note.textContent = '未手動結算時，將於 ' + fmtDate(settleTime(k)) + ' 早上 6:00 自動封存。'; }
+  }
+
+  function renderList() {
+    var k = viewKey(), pd = periodData(k), c = calc(pd.records);
+    $('#listMeta').textContent = periodLabel(k) + '・' + pd.records.length + ' 筆・' + c.qty + ' 堂' + (pd.settled ? '・已封存' : '');
+    if (!pd.records.length) { $('#list').innerHTML = '<div class="empty"><b>這一期還沒有紀錄</b>在上方新增第一筆課程。</div>'; return; }
+    var days = {};
+    c.rows.forEach(function (x) { (days[x.rec.date] = days[x.rec.date] || []).push(x); });
+    var h = '';
+    Object.keys(days).sort().reverse().forEach(function (d) {
+      var rows = days[d], q = 0, m = 0, pts = 0, amt = 0, cus = false, o = !!openDays[d];
+      rows.forEach(function (x) { q += x.rec.qty; m += x.mins; if (x.rec.labor) pts += x.rec.qty; amt += x.amt; if (x.rec.custom != null) cus = true; });
+      var p = d.split('-');
+      h += '<button type="button" class="day" data-day="' + d + '" aria-expanded="' + o + '"' + (o ? ' style="border-bottom-left-radius:0;border-bottom-right-radius:0"' : '') + '>' +
+        '<span><span class="d">' + (+p[1]) + '/' + (+p[2]) + '</span><br><span class="w">' + weekday(d) + '</span></span>' +
+        '<span class="mid"><b>' + rows.length + ' 筆・' + q + ' 堂</b><div>時數 ' + dur(m) + (pts ? '・勞點 ' + pts : '') + '</div></span>' +
+        '<span class="amt">' + money(amt) + '<div>' + (cus ? '含自訂' : c.rate + '% 抽成') + '</div></span>' +
+        '<span class="pm" aria-hidden="true">' + (o ? '－' : '＋') + '</span></button>';
+      if (o) {
+        h += '<div class="recs">' + rows.map(function (x) {
+          return '<div class="rec"><div><b>' + esc(x.name) + ' × ' + x.rec.qty + '</b><div class="sub2">' + x.mins + ' 分鐘' + (x.rec.labor ? '・勞點' : '') + (x.rec.custom != null ? '・自訂抽成' : '') + '</div></div>' +
+            '<span class="a">' + money(x.amt) + '</span>' + (pd.settled ? '' : '<button type="button" class="mini" data-edit="' + esc(x.rec.id) + '">修改</button>') + '</div>';
+        }).join('') + '</div>';
+      }
+    });
+    $('#list').innerHTML = h;
+  }
+
+  function renderHist() {
+    var keys = Object.keys(state.settled).sort().reverse();
+    if (!keys.length) {
+      $('#hist').innerHTML = '<div class="empty"><b>目前沒有已結算紀錄</b>結算後，每一期總和會出現在這裡。</div>';
+      return;
+    }
+    var months = {}, h = '';
+    keys.forEach(function (k) { var t = keyParts(k), mk = t.y + '-' + pad(t.m); (months[mk] = months[mk] || []).push(k); });
+    Object.keys(months).sort().reverse().forEach(function (mk) {
+      var sum = 0, body = '';
+      months[mk].forEach(function (k) {
+        var s = state.settled[k], c = calc(s.records), st = setting(k), dd = deductions(k), n = netPay(c, st, dd.ins, dd.health, st.welfare);
+        sum += n.net;
+        var o = !!openHist[k];
+        body += '<button type="button" class="hp" data-hist="' + k + '" aria-expanded="' + o + '"><span><span class="t">' + periodLabel(k) + '</span><br><span class="s">' + c.qty + ' 堂・' + dur(c.mins) + '・' + c.rate + '%' + (s.auto ? '・自動結算' : '') + '</span></span>' +
+          '<span class="m">' + money(n.net) + '<div>抽成 ' + money(c.total) + '</div></span></button>';
+        if (o) {
+          body += '<div class="recs" style="margin-top:0">' + c.rows.map(function (x) {
+            var p = x.rec.date.split('-');
+            return '<div class="rec" style="grid-template-columns:minmax(0,1fr) auto"><div><b>' + (+p[1]) + '/' + (+p[2]) + ' ' + esc(x.name) + ' × ' + x.rec.qty + '</b><div class="sub2">' + x.mins + ' 分鐘' + (x.rec.labor ? '・勞點' : '') + (x.rec.custom != null ? '・自訂抽成' : '') + '</div></div><span class="a">' + money(x.amt) + '</span></div>';
+          }).join('') + '<div class="rec" style="grid-template-columns:minmax(0,1fr) auto"><span class="sub2">勞點 ' + c.pts + ' 點' + (st.labor ? '・加給 ' + money(n.lb) : '') + (st.att ? '・全勤 ' + money(ATT_BONUS) : '') + '</span><span class="sub2">結算 ' + fmtDate(new Date(s.at)) + '</span></div></div>';
+        }
+        body += '<div style="height:8px"></div>';
+      });
+      var t = mk.split('-');
+      h += '<div class="hist-month"><span>' + t[0] + ' 年 ' + (+t[1]) + ' 月</span><span>實領合計 ' + money(sum) + '</span></div>' + body;
+    });
+    $('#hist').innerHTML = h;
+  }
+
+  function trialKeys() {
+    var s = {};
+    state.records.forEach(function (r) { s[periodOf(r.date)] = 1; });
+    Object.keys(state.settled).forEach(function (k) { s[k] = 1; });
+    s[viewKey()] = 1;
+    return Object.keys(s).sort().reverse();
+  }
+  function renderTrialSel(keep) {
+    var sel = $('#tSel'), cur = keep || sel.value || viewKey(), keys = trialKeys();
+    if (keys.indexOf(cur) < 0) keys.unshift(cur);
+    sel.innerHTML = keys.map(function (k) { return '<option value="' + k + '">' + periodLabel(k) + '・' + (state.settled[k] ? '已結算' : '未結算課堂') + '</option>'; }).join('');
+    sel.value = cur;
+  }
+  function loadTrialInputs() {
+    var k = $('#tSel').value, st = setting(k), d = deductions(k), f = state.fixed || {};
+    $('#tLabor').checked = st.labor; $('#tAtt').checked = st.att;
+    $('#tIns').value = d.ins; $('#tHealth').value = d.health; $('#tWelfare').value = st.welfare;
+    $('#tFixed').checked = !!f.on;
+    var note = $('#tFixedNote');
+    if (f.on) {
+      note.hidden = false;
+      note.textContent = '每月第二期固定扣 團保 ' + money(+f.ins || 0) + '、勞健保 ' + money(+f.health || 0) + '，第一期不扣。' +
+        (state.settled[k] ? '本期已結算，維持當時金額。' : (st.ov ? '本期已自訂金額。' : ''));
+    } else note.hidden = true;
+  }
+  function num(sel) { var v = parseFloat($(sel).value); return isFinite(v) && v > 0 ? v : 0; }
+  function renderTrial() {
+    var k = $('#tSel').value, pd = periodData(k), c = calc(pd.records);
+    var st = {labor: $('#tLabor').checked, att: $('#tAtt').checked};
+    var ins = num('#tIns'), hl = num('#tHealth'), wf = num('#tWelfare');
+    var n = netPay(c, st, ins, hl, wf);
+    $('#tLaborT').textContent = '勞點加給 +' + money(n.lb);
+    $('#tLaborD').textContent = '本期 ' + c.pts + ' 點（勞點勾選堂數）；15 點 $150，每增加 1 點 +$10';
+    $('#tAttT').textContent = '全勤獎金 +' + money(n.at);
+    $('#rTitle').textContent = periodLabel(k) + '・' + (pd.settled ? '已結算' : '未結算即時計算') + '・' + c.qty + ' 堂・' + dur(c.mins);
+    $('#rComm').innerHTML = '抽成<br>' + money(c.total);
+    $('#rNet').textContent = money(n.net);
+    $('#rCalc').textContent = '抽成 ' + money(c.total) + ' ＋勞點 ' + money(n.lb) + ' ＋全勤 ' + money(n.at) + ' －團保 ' + money(ins) + ' －勞健保 ' + money(hl) + ' －福利金 ' + money(wf);
+  }
+
+  function renderForm() {
+    var it = BY_ID[$('#fItem').value];
+    if (!it) { $('#fTime').textContent = '此分類還沒有項目，請到抽成一覽表新增。'; $('#fPay').textContent = ''; $('#fHint').hidden = true; return; }
+    var qty = Math.max(1, parseInt($('#fQty').value, 10) || 1);
+    var date = $('#fDate').value || todayStr(), k = periodOf(date);
+    var pd = periodData(k);
+    var before = calc(pd.records);
+    var after = calc(pd.records.concat([{id: 'x', itemId: it.id, qty: qty, labor: false, custom: null, date: date}])), rate = after.rate;
+    $('#fTime').textContent = '課堂時間：' + it.min + ' 分鐘／堂';
+    var unit = rate === 65 ? it.b : it.a;
+    $('#fPay').textContent = '預估佣金：' + money(unit) + ' × ' + qty + ' 堂 = ' + money(r2(unit * qty)) + '（' + rate + '%）';
+    var hint = $('#fHint');
+    if (pd.settled) { hint.hidden = false; hint.textContent = periodLabel(k) + ' 已結算封存，無法再新增。'; }
+    else if (before.rate === 60 && rate === 65) { hint.hidden = false; hint.textContent = '加入後 ' + periodLabel(k) + ' 累積達 75 小時，整期改以 65% 計算。'; }
+    else hint.hidden = true;
+  }
+  function refreshFormItems() { fillItems($('#fItem'), formCat, $('#fItem').value); }
+
+  function renderAll() {
+    renderPrice(); refreshFormItems();
+    renderStats(); renderList(); renderHist();
+    renderTrialSel(); loadTrialInputs(); renderTrial(); renderForm();
+  }
+
+  /* ---------- 新增 / 修改課程紀錄 ---------- */
+  function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function addRecord() {
+    var date = $('#fDate').value, err = $('#fErr'); err.textContent = '';
+    var qty = parseInt($('#fQty').value, 10), iid = $('#fItem').value;
+    if (!date) { err.textContent = '請選擇服務日期。'; return; }
+    if (!iid || !BY_ID[iid]) { err.textContent = '請先選擇課程項目。'; return; }
+    if (!(qty >= 1 && qty <= 99)) { err.textContent = '堂數請輸入 1 到 99。'; return; }
+    var k = periodOf(date);
+    if (state.settled[k]) { err.textContent = periodLabel(k) + ' 已結算封存，無法再新增。'; return; }
+    state.records.push({id: newId(), date: date, itemId: iid, qty: qty, labor: $('#fLabor').checked, custom: null});
+    markCore();
+    var t = keyParts(k); view.month = t.y + '-' + pad(t.m); view.p = t.p;
+    $('#vMonth').value = view.month; $('#vPeriod').value = String(view.p);
+    $('#fQty').value = 1; $('#fLabor').checked = false;
+    openDays[date] = true;
+    renderAll();
+    toast('已加入 ' + periodLabel(k));
+  }
+  function openEdit(id) {
+    var r = state.records.filter(function (x) { return x.id === id; })[0]; if (!r) return;
+    var it = BY_ID[r.itemId];
+    editId = id; editCat = it ? it.cat : '腳';
+    $('#eDate').value = r.date; $('#eQty').value = r.qty; $('#eLabor').checked = !!r.labor;
+    $('#eCustom').value = r.custom != null ? r.custom : '';
+    catChips($('#eCats'), editCat, 'data-ecat'); fillItems($('#eItem'), editCat, r.itemId);
+    $('#eErr').textContent = ''; $('#eDel').textContent = '刪除此筆'; $('#eDel').dataset.arm = '';
+    $('#editVeil').hidden = false;
+  }
+  function saveEdit() {
+    var r = state.records.filter(function (x) { return x.id === editId; })[0]; if (!r) { $('#editVeil').hidden = true; return; }
+    var date = $('#eDate').value, qty = parseInt($('#eQty').value, 10), err = $('#eErr'), cu = $('#eCustom').value.trim(), iid = $('#eItem').value;
+    if (!date) { err.textContent = '請選擇服務日期。'; return; }
+    if (!iid || !BY_ID[iid]) { err.textContent = '請選擇課程項目。'; return; }
+    if (!(qty >= 1 && qty <= 99)) { err.textContent = '堂數請輸入 1 到 99。'; return; }
+    var cv = null;
+    if (cu !== '') { cv = parseFloat(cu); if (!isFinite(cv) || cv < 0) { err.textContent = '自訂抽成請輸入 0 以上的數字，或留空。'; return; } }
+    var k = periodOf(date);
+    if (state.settled[k]) { err.textContent = periodLabel(k) + ' 已結算封存，不能改到這一期。'; return; }
+    r.date = date; r.qty = qty; r.itemId = iid; r.labor = $('#eLabor').checked; r.custom = cv;
+    markCore();
+    var t = keyParts(k); view.month = t.y + '-' + pad(t.m); view.p = t.p;
+    $('#vMonth').value = view.month; $('#vPeriod').value = String(view.p);
+    $('#editVeil').hidden = true; renderAll(); toast('已儲存修改');
+  }
+  function delEdit() {
+    var b = $('#eDel');
+    if (b.dataset.arm !== '1') { b.dataset.arm = '1'; b.textContent = '再按一次確認刪除'; return; }
+    state.records = state.records.filter(function (x) { return x.id !== editId; });
+    markCore(); $('#editVeil').hidden = true; renderAll(); toast('已刪除');
+  }
+
+  /* ---------- 新增 / 修改 / 刪除課堂項目 ---------- */
+  function usedCount(id) {
+    var n = state.records.filter(function (r) { return r.itemId === id; }).length;
+    Object.keys(state.settled).forEach(function (k) { state.settled[k].records.forEach(function (r) { if (r.itemId === id) n++; }); });
+    return n;
+  }
+  function openItem(id) {
+    itemId = id;
+    var it = id ? BY_ID[id] : null;
+    itemCat = it ? it.cat : formCat;
+    $('#iTitle').textContent = it ? '修改課堂資料' : '新增課堂資料';
+    catChips($('#iCats'), itemCat, 'data-icat');
+    $('#iName').value = it ? it.name : ''; $('#iMin').value = it ? it.min : '';
+    $('#iA').value = it ? it.a : ''; $('#iB').value = it ? it.b : '';
+    $('#iErr').textContent = '';
+    var del = $('#iDel'); del.hidden = !it; del.textContent = '刪除項目'; del.dataset.arm = '';
+    var note = $('#iNote');
+    if (it) {
+      var n = usedCount(id);
+      note.hidden = false;
+      note.textContent = '修改後，尚未結算的課程會用新的時間與金額重算；已結算封存的維持當時的內容。' + (n ? '已有 ' + n + ' 筆課程使用這個項目。' : '');
+    } else note.hidden = true;
+    $('#itemVeil').hidden = false;
+  }
+  function saveItem() {
+    var err = $('#iErr'), name = $('#iName').value.trim();
+    var min = parseInt($('#iMin').value, 10), a = parseFloat($('#iA').value), bs = $('#iB').value.trim(), b;
+    if (!name) { err.textContent = '請輸入項目名稱。'; return; }
+    if (!(min >= 1 && min <= 600)) { err.textContent = '時間請輸入 1 到 600 分鐘。'; return; }
+    if (!isFinite(a) || a < 0) { err.textContent = '請輸入 60% 抽成金額。'; return; }
+    if (bs === '') b = autoB(a);
+    else { b = parseFloat(bs); if (!isFinite(b) || b < 0) { err.textContent = '65% 抽成請輸入 0 以上的數字，或留空。'; return; } }
+    var it = itemId ? BY_ID[itemId] : null;
+    if (it) { it.cat = itemCat; it.name = name; it.min = min; it.a = a; it.b = b; }
+    else state.items.push({id: 'i' + newId(), cat: itemCat, name: name, min: min, a: a, b: b});
+    setItems(state.items); markCore();
+    $('#itemVeil').hidden = true;
+    if (!it) { formCat = itemCat; catChips($('#fCats'), formCat, 'data-cat'); }
+    renderAll(); toast(it ? '已儲存修改' : '已新增 ' + name);
+  }
+  function delItem() {
+    var b = $('#iDel');
+    if (b.dataset.arm !== '1') { b.dataset.arm = '1'; b.textContent = '再按一次確認刪除'; return; }
+    var it = BY_ID[itemId]; if (!it) { $('#itemVeil').hidden = true; return; }
+    if (usedCount(itemId)) it.del = true;
+    else state.items = state.items.filter(function (x) { return x.id !== itemId; });
+    setItems(state.items); markCore();
+    $('#itemVeil').hidden = true; renderAll(); toast('已刪除項目');
+  }
+
+  /* ---------- 匯出備份 / 匯入還原 ---------- */
+  var bkMode = '', bkStep = 0;
+  function backupText() {
+    return JSON.stringify({app: 'massage-hours', v: 2, at: Date.now(), data: {items: state.items, records: state.records, settings: state.settings, fixed: state.fixed, settled: state.settled, lastCheck: state.lastCheck}});
+  }
+  var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  function okRec(r) { return r && typeof r.id === 'string' && DATE_RE.test(r.date || '') && typeof r.itemId === 'string' && r.qty >= 1 && r.qty <= 99; }
+  function checkBackup(o) {
+    if (!o || o.app !== 'massage-hours' || !o.data) return null;
+    var d = o.data;
+    if (!Array.isArray(d.records) || !Array.isArray(d.items) || !d.settled || typeof d.settled !== 'object') return null;
+    var itemsOk = d.items.every(function (i) { return i && typeof i.id === 'string' && typeof i.name === 'string' && CATS.indexOf(i.cat) >= 0 && isFinite(i.min) && isFinite(i.a) && isFinite(i.b); });
+    if (!itemsOk || !d.records.every(okRec)) return null;
+    var keys = Object.keys(d.settled);
+    for (var j = 0; j < keys.length; j++) {
+      var s = d.settled[keys[j]];
+      if (!/^\d{4}-\d{2}-[12]$/.test(keys[j]) || !s || !Array.isArray(s.records) || !s.records.every(okRec)) return null;
+    }
+    return d;
+  }
+  function applyBackup(d) {
+    var oldKeys = Object.keys(state.settled);
+    state.items = d.items; state.records = d.records; state.settings = d.settings || {};
+    state.fixed = d.fixed || {on: false, ins: 0, health: 0};
+    state.settled = d.settled; state.lastCheck = d.lastCheck || Date.now();
+    setItems(state.items);
+    if (col) oldKeys.forEach(function (k) { if (!state.settled[k]) col.doc('h_' + k).delete().catch(function () {}); });
+    autoSettle(Date.now());
+    markCore(); Object.keys(state.settled).forEach(markSettled);
+    openDays = {}; openHist = {};
+    renderAll();
+  }
+  function bkOpen(mode) {
+    bkMode = mode; bkStep = 0;
+    var ta = $('#bkText');
+    $('#bkBox').hidden = false; $('#bkErr').textContent = '';
+    if (mode === 'export') {
+      $('#bkHelp').textContent = '按「複製」，再貼到 LINE 的 Keep 筆記或備忘錄保存。換手機或重裝後，用「匯入還原」貼回來就好。';
+      ta.value = backupText(); ta.readOnly = true;
+      $('#bkCopy').hidden = false; $('#bkShare').hidden = !(STANDALONE && navigator.share); $('#bkRestore').hidden = true;
+    } else {
+      $('#bkHelp').textContent = '把備份文字整段貼在下面，按「還原」。還原會覆蓋目前的全部資料。';
+      ta.value = ''; ta.readOnly = false;
+      $('#bkCopy').hidden = true; $('#bkShare').hidden = true; $('#bkRestore').hidden = false; $('#bkRestore').textContent = '還原';
+    }
+  }
+  async function bkCopy() {
+    var ta = $('#bkText'), ok = false;
+    try { await navigator.clipboard.writeText(ta.value); ok = true; } catch (e) {}
+    if (!ok) { ta.focus(); ta.select(); try { ok = document.execCommand('copy'); } catch (e) {} }
+    toast(ok ? '已複製備份' : '複製失敗，請長按文字框全選後手動複製');
+  }
+  function bkRestore() {
+    var err = $('#bkErr'), o; err.textContent = '';
+    try { o = JSON.parse($('#bkText').value.trim()); } catch (e) { err.textContent = '這不是有效的備份文字，請整段完整貼上。'; return; }
+    var d = checkBackup(o);
+    if (!d) { err.textContent = '備份內容不完整或格式不對，沒有做任何變更。'; return; }
+    if (bkStep === 0) { bkStep = 1; $('#bkRestore').textContent = '確認覆蓋（再按一次）'; return; }
+    applyBackup(d);
+    $('#bkBox').hidden = true; $('#bkText').value = ''; bkStep = 0;
+    toast('已還原備份');
+  }
+
+  /* ---------- 事件 ---------- */
+  function closeAll() { $('#editVeil').hidden = true; $('#setVeil').hidden = true; $('#itemVeil').hidden = true; settleStep = 0; }
+  function wire() {
+    $('#vMonth').addEventListener('change', function () { if (!this.value) return; view.month = this.value; renderAll(); });
+    $('#vPeriod').addEventListener('change', function () { view.p = +this.value; renderAll(); });
+    $('#btnTable').addEventListener('click', function () {
+      var box = $('#priceBox'); box.hidden = !box.hidden;
+      this.setAttribute('aria-expanded', String(!box.hidden)); $('#tblPm').textContent = box.hidden ? '＋' : '－';
+    });
+    $('#btnItemNew').addEventListener('click', function () { openItem(null); });
+    $('#btnItemEdit').addEventListener('click', function () { editMode = !editMode; renderPrice(); });
+    $('#priceBody').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-iedit]'); if (b) openItem(b.dataset.iedit);
+    });
+    $('#iCats').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-icat]'); if (!b) return;
+      itemCat = b.dataset.icat; catChips($('#iCats'), itemCat, 'data-icat');
+    });
+    $('#iCancel').addEventListener('click', function () { $('#itemVeil').hidden = true; });
+    $('#iSave').addEventListener('click', saveItem);
+    $('#iDel').addEventListener('click', delItem);
+
+    $('#fCats').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-cat]'); if (!b) return;
+      formCat = b.dataset.cat; catChips($('#fCats'), formCat, 'data-cat'); fillItems($('#fItem'), formCat); renderForm();
+    });
+    ['#fItem', '#fQty', '#fDate'].forEach(function (s) { $(s).addEventListener('input', renderForm); $(s).addEventListener('change', renderForm); });
+    $('#btnAdd').addEventListener('click', addRecord);
+
+    $('#list').addEventListener('click', function (e) {
+      var ed = e.target.closest('[data-edit]'); if (ed) { openEdit(ed.dataset.edit); return; }
+      var d = e.target.closest('[data-day]'); if (d) { openDays[d.dataset.day] = !openDays[d.dataset.day]; renderList(); }
+    });
+    $('#hist').addEventListener('click', function (e) {
+      var h = e.target.closest('[data-hist]'); if (h) { openHist[h.dataset.hist] = !openHist[h.dataset.hist]; renderHist(); }
+    });
+
+    $('#eCats').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-ecat]'); if (!b) return;
+      editCat = b.dataset.ecat; catChips($('#eCats'), editCat, 'data-ecat'); fillItems($('#eItem'), editCat);
+    });
+    $('#eCancel').addEventListener('click', function () { $('#editVeil').hidden = true; });
+    $('#eSave').addEventListener('click', saveEdit);
+    $('#eDel').addEventListener('click', delEdit);
+
+    $('#btnSettle').addEventListener('click', function () {
+      settleStep = 1; $('#sOk').textContent = '確認結算（1/2）';
+      $('#sBody').textContent = '即將結算 ' + periodLabel(viewKey()) + '，請點擊兩次「確認結算」才會正式封存，封存後不能再修改。';
+      $('#setVeil').hidden = false;
+    });
+    $('#sCancel').addEventListener('click', function () { settleStep = 0; $('#setVeil').hidden = true; });
+    $('#sOk').addEventListener('click', function () {
+      if (settleStep === 1) { settleStep = 2; this.textContent = '確認結算（2/2）'; return; }
+      var k = viewKey(); settleStep = 0; $('#setVeil').hidden = true;
+      if (settlePeriod(k, false)) { renderAll(); toast(periodLabel(k) + ' 已結算封存'); }
+    });
+
+    $('#tSel').addEventListener('change', function () { loadTrialInputs(); renderTrial(); });
+    ['#tIns', '#tHealth', '#tWelfare'].forEach(function (s) { $(s).addEventListener('input', renderTrial); });
+    ['#tLabor', '#tAtt'].forEach(function (s) {
+      $(s).addEventListener('change', function () {
+        var k = $('#tSel').value, st = setting(k);
+        st.labor = $('#tLabor').checked; st.att = $('#tAtt').checked; state.settings[k] = st; markCore(); renderTrial(); renderHist();
+      });
+    });
+    $('#btnSaveDed').addEventListener('click', function () {
+      var k = $('#tSel').value, st = setting(k), f = state.fixed || {};
+      var ins = num('#tIns'), hl = num('#tHealth');
+      st.welfare = num('#tWelfare');
+      if (f.on && !state.settled[k]) {
+        var p2 = keyParts(k).p === 2, di = p2 ? (+f.ins || 0) : 0, dh = p2 ? (+f.health || 0) : 0;
+        if (ins === di && hl === dh) { st.ov = false; st.ins = 0; st.health = 0; }
+        else { st.ov = true; st.ins = ins; st.health = hl; }
+      } else { st.ins = ins; st.health = hl; }
+      state.settings[k] = st; markCore(); loadTrialInputs(); renderTrial(); renderHist(); toast('已保存扣項');
+    });
+    $('#tFixed').addEventListener('change', function () {
+      if (this.checked) {
+        var i = num('#tIns'), h = num('#tHealth');
+        if (!i && !h) { this.checked = false; toast('請先填入團保費或勞健保費金額，再勾選。'); return; }
+        state.fixed = {on: true, ins: i, health: h};
+      } else {
+        var kk = $('#tSel').value;
+        if (!state.settled[kk]) { var s0 = setting(kk); s0.ins = num('#tIns'); s0.health = num('#tHealth'); s0.ov = false; state.settings[kk] = s0; }
+        state.fixed = {on: false, ins: +(state.fixed && state.fixed.ins) || 0, health: +(state.fixed && state.fixed.health) || 0};
+      }
+      markCore(); loadTrialInputs(); renderTrial(); renderHist();
+    });
+    $('#btnExport').addEventListener('click', function () { bkOpen('export'); });
+    $('#btnImport').addEventListener('click', function () { bkOpen('import'); });
+    $('#bkClose').addEventListener('click', function () { $('#bkBox').hidden = true; $('#bkText').value = ''; bkStep = 0; });
+    $('#bkCopy').addEventListener('click', bkCopy);
+    $('#bkShare').addEventListener('click', function () {
+      try { navigator.share({title: '課堂時數抽成備份', text: $('#bkText').value}).catch(function () {}); } catch (e) {}
+    });
+    $('#bkRestore').addEventListener('click', bkRestore);
+    $('#bkText').addEventListener('input', function () { if (bkMode === 'import') { bkStep = 0; $('#bkRestore').textContent = '還原'; $('#bkErr').textContent = ''; } });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAll(); });
+    setInterval(function () { if (autoSettle(Date.now())) { markCore(); renderAll(); toast('已依結算時間自動封存'); } }, 60000);
+  }
+
+  async function boot() {
+    await initStore();
+    var now = new Date();
+    view.month = now.getFullYear() + '-' + pad(now.getMonth() + 1);
+    view.p = now.getDate() <= 15 ? 1 : 2;
+    $('#vMonth').value = view.month; $('#vPeriod').value = String(view.p);
+    $('#fDate').value = todayStr();
+    catChips($('#fCats'), formCat, 'data-cat');
+    var changed = autoSettle(Date.now());
+    markCore();
+    wire(); renderAll();
+    if (changed) toast('已補做到期的自動結算');
+  }
+  boot();
+})();
+</script>
