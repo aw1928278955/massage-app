@@ -158,6 +158,16 @@ tr.none td { color: var(--mute); text-align: left; }
 .result .big { font-size: 30px; font-weight: 900; color: var(--fg); margin: 2px 0 6px; line-height: 1.2; }
 .result .calc { font-size: 12px; color: var(--mute); margin: 0; }
 
+.hv-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+.hv-tabs button { min-height: 38px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg-in); color: var(--mute); font: inherit; font-weight: 700; cursor: pointer; }
+.hv-tabs button[aria-selected="true"] { border-color: var(--gold); color: var(--gold); }
+.hv-body { max-height: 62vh; overflow: auto; }
+.hv-big { font-size: 28px; font-weight: 900; line-height: 1.2; margin: 2px 0; }
+.hv-row { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.hv-row > span:last-child { font-weight: 700; white-space: nowrap; }
+.hv-row .muted { font-weight: 400; }
+.hv-row.sub span:first-child { color: var(--mute); }
+.hv-sec { margin: 14px 0 2px; font-weight: 700; font-size: 13px; color: var(--gold); display: flex; justify-content: space-between; }
 .veil { position: fixed; inset: 0; background: rgba(4, 6, 8, .66); display: flex; align-items: flex-end; justify-content: center;
   padding: 14px max(14px, env(safe-area-inset-right, 0px)) max(14px, env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)); z-index: 30; overflow: auto; }
 .sheet { width: 100%; max-width: 480px; background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 18px 16px; margin-block: auto; }
@@ -326,6 +336,14 @@ tr.none td { color: var(--mute); text-align: left; }
       <button class="btn-gold" id="iSave">儲存</button>
       <button class="btn-ghost btn-danger" id="iDel" hidden>刪除項目</button>
     </div>
+  </div>
+</div>
+
+<div class="veil" id="histVeil" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="hvTitle">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h3 id="hvTitle" style="margin:0"></h3><button class="btn-line sm" id="hvClose" aria-label="關閉">✕</button></div>
+    <div class="hv-tabs" role="tablist"><button type="button" role="tab" data-hvtab="sum" aria-selected="true">總覽</button><button type="button" role="tab" data-hvtab="day" aria-selected="false">依日期</button></div>
+    <div class="hv-body" id="hvBody"></div>
   </div>
 </div>
 
@@ -674,15 +692,8 @@ function netPay(c, st, ins, health, welfare) {
         var s = state.settled[k], c = calc(s.records), st = setting(k), dd = deductions(k), n = netPay(c, st, dd.ins, dd.health, st.welfare);
         if (s.pay) n = {lb: s.pay.lb, at: s.pay.at, net: s.pay.net};
         sum += n.net;
-        var o = !!openHist[k];
-        body += '<button type="button" class="hp" data-hist="' + k + '" aria-expanded="' + o + '"><span><span class="t">' + periodLabel(k) + '</span><br><span class="s">' + c.qty + ' 堂・' + dur(c.mins) + '・' + c.rate + '%' + (s.auto ? '・自動結算' : '') + '</span></span>' +
+        body += '<button type="button" class="hp" data-hist="' + k + '"><span><span class="t">' + periodLabel(k) + '</span><br><span class="s">' + c.qty + ' 堂・' + dur(c.mins) + '・' + c.rate + '%' + (s.auto ? '・自動結算' : '') + '</span></span>' +
           '<span class="m">' + money(n.net) + '<div>抽成 ' + money(c.total) + '</div></span></button>';
-        if (o) {
-          body += '<div class="recs" style="margin-top:0">' + c.rows.map(function (x) {
-            var p = x.rec.date.split('-');
-            return '<div class="rec" style="grid-template-columns:minmax(0,1fr) auto"><div><b>' + (+p[1]) + '/' + (+p[2]) + ' ' + esc(x.name) + ' × ' + x.rec.qty + '</b><div class="sub2">' + x.mins + ' 分鐘' + (x.rec.labor ? '・勞點' : '') + (x.rec.custom != null ? '・自訂抽成' : '') + '</div></div><span class="a">' + money(x.amt) + '</span></div>';
-          }).join('') + '<div class="rec" style="grid-template-columns:minmax(0,1fr) auto"><span class="sub2">勞點 ' + c.pts + ' 點' + (n.lb ? '・加給 ' + money(n.lb) : '') + (n.at ? '・全勤 ' + money(n.at) : '') + (s.pay ? '・扣 ' + money(s.pay.ins + s.pay.health + s.pay.welfare) : '') + '</span><span class="sub2">結算 ' + fmtDate(new Date(s.at)) + '</span></div></div>';
-        }
         body += '<div style="height:8px"></div>';
       });
       var t = mk.split('-');
@@ -690,6 +701,63 @@ function netPay(c, st, ins, health, welfare) {
     });
     $('#hist').innerHTML = h;
   }
+
+  var hvKey = null, hvTab = 'sum', hvOpen = {};
+  function payOf(k) {
+    var s = state.settled[k], c = calc(s.records), st = setting(k), dd = deductions(k), n = netPay(c, st, dd.ins, dd.health, st.welfare);
+    if (s.pay) return {c: c, s: s, lb: s.pay.lb, at: s.pay.at, ins: s.pay.ins, health: s.pay.health, welfare: s.pay.welfare, net: s.pay.net, old: false};
+    return {c: c, s: s, lb: n.lb, at: n.at, ins: dd.ins, health: dd.health, welfare: st.welfare, net: n.net, old: true};
+  }
+  function renderHistView() {
+    var k = hvKey, o = payOf(k), c = o.c, h = '';
+    $('#hvTitle').textContent = periodLabel(k);
+    document.querySelectorAll('[data-hvtab]').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.hvtab === hvTab ? 'true' : 'false'); });
+    if (hvTab === 'sum') {
+      h += '<div class="muted small">實領</div><div class="hv-big">' + money(o.net) + '</div>';
+      h += '<div class="hv-row"><span>抽成（' + c.rate + '%）</span><span>' + money(c.total) + '</span></div>';
+      h += '<div class="hv-row"><span>勞點加給（' + c.pts + ' 點）</span><span>＋' + money(o.lb) + '</span></div>';
+      h += '<div class="hv-row"><span>全勤獎金</span><span>＋' + money(o.at) + '</span></div>';
+      h += '<div class="hv-row"><span>團保費</span><span>－' + money(o.ins) + '</span></div>';
+      h += '<div class="hv-row"><span>勞健保費</span><span>－' + money(o.health) + '</span></div>';
+      h += '<div class="hv-row"><span>福利金</span><span>－' + money(o.welfare) + '</span></div>';
+      if (o.old) h += '<p class="muted small" style="margin:6px 0 0">此期為舊版結算，加給與扣項依目前設定顯示。</p>';
+      h += '<div class="hv-sec"><span>本期統計</span></div>';
+      h += '<div class="hv-row sub"><span>總堂數</span><span>' + c.qty + ' 堂</span></div>';
+      h += '<div class="hv-row sub"><span>總時數</span><span>' + dur(c.mins) + '</span></div>';
+      h += '<div class="hv-row sub"><span>結算</span><span>' + fmtDate(new Date(o.s.at)) + (o.s.auto ? ' 自動' : ' 手動') + '</span></div>';
+      var groups = {};
+      c.rows.forEach(function (x) {
+        var cat = x.item && x.item.cat ? x.item.cat : '其他', g = (groups[cat] = groups[cat] || {}), e = (g[x.name] = g[x.name] || {qty: 0, mins: 0, amt: 0});
+        e.qty += x.rec.qty; e.mins += x.mins; e.amt += x.amt;
+      });
+      CATS.concat(Object.keys(groups).filter(function (z) { return CATS.indexOf(z) < 0; })).forEach(function (cat) {
+        var g = groups[cat]; if (!g) return;
+        var names = Object.keys(g), q = 0, a = 0;
+        names.forEach(function (n) { q += g[n].qty; a += g[n].amt; });
+        h += '<div class="hv-sec"><span>' + esc(cat) + '（' + q + ' 堂）</span><span>' + money(r2(a)) + '</span></div>';
+        names.forEach(function (n) {
+          h += '<div class="hv-row"><span>' + esc(n) + ' × ' + g[n].qty + ' 堂<span class="muted small">・' + dur(g[n].mins) + '</span></span><span>' + money(r2(g[n].amt)) + '</span></div>';
+        });
+      });
+    } else {
+      var days = {};
+      c.rows.forEach(function (x) { (days[x.rec.date] = days[x.rec.date] || []).push(x); });
+      Object.keys(days).sort().reverse().forEach(function (d) {
+        var rows = days[d], q = 0, m = 0, amt = 0, op = !!hvOpen[d], p = d.split('-');
+        rows.forEach(function (x) { q += x.rec.qty; m += x.mins; amt += x.amt; });
+        h += '<button type="button" class="day" data-hvday="' + d + '" aria-expanded="' + op + '"' + (op ? ' style="border-bottom-left-radius:0;border-bottom-right-radius:0"' : '') + '>' +
+          '<span><span class="d">' + (+p[1]) + '/' + (+p[2]) + '</span><br><span class="w">' + weekday(d) + '</span></span>' +
+          '<span class="mid"><b>' + rows.length + ' 筆・' + q + ' 堂</b><div>時數 ' + dur(m) + '</div></span>' +
+          '<span class="amt">' + money(r2(amt)) + '</span><span class="pm" aria-hidden="true">' + (op ? '－' : '＋') + '</span></button>';
+        if (op) h += '<div class="recs">' + rows.map(function (x) {
+          return '<div class="rec" style="grid-template-columns:minmax(0,1fr) auto"><div><b>' + esc(x.name) + ' × ' + x.rec.qty + '</b><div class="sub2">' + x.mins + ' 分鐘' + (x.rec.labor ? '・勞點' : '') + (x.rec.custom != null ? '・自訂抽成' : '') + '</div></div><span class="a">' + money(x.amt) + '</span></div>';
+        }).join('') + '</div>';
+        h += '<div style="height:6px"></div>';
+      });
+    }
+    $('#hvBody').innerHTML = h;
+  }
+  function openHistView(k) { hvKey = k; hvTab = 'sum'; hvOpen = {}; renderHistView(); $('#histVeil').hidden = false; $('#hvBody').scrollTop = 0; }
 
   function trialKeys() {
     var s = {};
@@ -927,7 +995,7 @@ function netPay(c, st, ins, health, welfare) {
   }
 
   /* ---------- 事件 ---------- */
-  function closeAll() { $('#editVeil').hidden = true; $('#setVeil').hidden = true; $('#itemVeil').hidden = true; settleStep = 0; }
+  function closeAll() { $('#editVeil').hidden = true; $('#setVeil').hidden = true; $('#itemVeil').hidden = true; $('#histVeil').hidden = true; settleStep = 0; }
   function wire() {
     $('#vMonth').addEventListener('change', function () { if (!this.value) return; view.month = this.value; renderAll(); });
     $('#vPeriod').addEventListener('change', function () { view.p = +this.value; renderAll(); });
@@ -960,7 +1028,13 @@ function netPay(c, st, ins, health, welfare) {
       var d = e.target.closest('[data-day]'); if (d) { openDays[d.dataset.day] = !openDays[d.dataset.day]; renderList(); }
     });
     $('#hist').addEventListener('click', function (e) {
-      var h = e.target.closest('[data-hist]'); if (h) { openHist[h.dataset.hist] = !openHist[h.dataset.hist]; renderHist(); }
+      var h = e.target.closest('[data-hist]'); if (h) openHistView(h.dataset.hist);
+    });
+    $('#hvClose').addEventListener('click', function () { $('#histVeil').hidden = true; });
+    $('#histVeil').addEventListener('click', function (e) {
+      if (e.target === this) { this.hidden = true; return; }
+      var t = e.target.closest('[data-hvtab]'); if (t) { hvTab = t.dataset.hvtab; renderHistView(); $('#hvBody').scrollTop = 0; return; }
+      var d = e.target.closest('[data-hvday]'); if (d) { hvOpen[d.dataset.hvday] = !hvOpen[d.dataset.hvday]; renderHistView(); }
     });
 
     $('#eCats').addEventListener('click', function (e) {
