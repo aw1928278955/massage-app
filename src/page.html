@@ -230,8 +230,6 @@ tr.none td { color: var(--mute); text-align: left; }
       <div class="top"><span id="mLbl">距離 75 小時門檻</span><span id="mVal">75 小時</span></div>
       <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="75" id="mBar"><span id="mFill"></span></div>
     </div>
-    <button class="btn-line" id="btnSettle" style="width:100%;margin-top:12px">手動結算</button>
-    <p class="settle-note" id="settleNote"></p>
   </section>
 
   <section class="panel">
@@ -263,6 +261,8 @@ tr.none td { color: var(--mute); text-align: left; }
       <div class="big" id="rNet">$0</div>
       <p class="calc" id="rCalc"></p>
     </div>
+    <button class="btn-line" id="btnSettle" style="width:100%;margin-top:12px">手動結算</button>
+    <p class="settle-note" id="settleNote"></p>
   </section>
 
   <section class="panel">
@@ -565,8 +565,10 @@ function netPay(c, st, ins, health, welfare) {
     var c = calc(pd.records);
     var d = deductions(k), st = setting(k);
     st.ins = d.ins; st.health = d.health; st.ov = true; state.settings[k] = st;
+    var n = netPay(c, st, d.ins, d.health, st.welfare);
     state.settled[k] = {
       key: k, at: Date.now(), auto: !!auto,
+      pay: {comm: c.total, pts: c.pts, lb: n.lb, at: n.at, ins: d.ins, health: d.health, welfare: st.welfare, net: n.net},
       records: c.rows.map(function (x) {
         return {id: x.rec.id, date: x.rec.date, itemId: x.rec.itemId, iname: x.name, imin: x.unitMin, qty: x.rec.qty, labor: !!x.rec.labor, custom: x.rec.custom == null ? null : x.rec.custom, amount: x.amt};
       })
@@ -630,11 +632,6 @@ function netPay(c, st, ins, health, welfare) {
     $('#mVal').textContent = left ? dur(left) : '全期 65%';
     $('#mFill').style.width = Math.min(100, c.mins / THRESHOLD_MIN * 100) + '%';
     $('#mBar').setAttribute('aria-valuenow', (c.mins / 60).toFixed(1));
-    var k = viewKey(), btn = $('#btnSettle'), note = $('#settleNote');
-    btn.textContent = '手動結算 ' + periodLabel(k);
-    if (pd.settled) { btn.disabled = true; note.textContent = '此期已於 ' + fmtDate(new Date(pd.snap.at)) + (pd.snap.auto ? ' 自動' : ' 手動') + '結算封存。'; }
-    else if (!pd.records.length) { btn.disabled = true; note.textContent = '目前沒有待結算課程'; }
-    else { btn.disabled = false; note.textContent = '未手動結算時，將於 ' + fmtDate(settleTime(k)) + ' 早上 6:00 自動封存。'; }
   }
 
   function renderList() {
@@ -675,6 +672,7 @@ function netPay(c, st, ins, health, welfare) {
       var sum = 0, body = '';
       months[mk].forEach(function (k) {
         var s = state.settled[k], c = calc(s.records), st = setting(k), dd = deductions(k), n = netPay(c, st, dd.ins, dd.health, st.welfare);
+        if (s.pay) n = {lb: s.pay.lb, at: s.pay.at, net: s.pay.net};
         sum += n.net;
         var o = !!openHist[k];
         body += '<button type="button" class="hp" data-hist="' + k + '" aria-expanded="' + o + '"><span><span class="t">' + periodLabel(k) + '</span><br><span class="s">' + c.qty + ' 堂・' + dur(c.mins) + '・' + c.rate + '%' + (s.auto ? '・自動結算' : '') + '</span></span>' +
@@ -683,7 +681,7 @@ function netPay(c, st, ins, health, welfare) {
           body += '<div class="recs" style="margin-top:0">' + c.rows.map(function (x) {
             var p = x.rec.date.split('-');
             return '<div class="rec" style="grid-template-columns:minmax(0,1fr) auto"><div><b>' + (+p[1]) + '/' + (+p[2]) + ' ' + esc(x.name) + ' × ' + x.rec.qty + '</b><div class="sub2">' + x.mins + ' 分鐘' + (x.rec.labor ? '・勞點' : '') + (x.rec.custom != null ? '・自訂抽成' : '') + '</div></div><span class="a">' + money(x.amt) + '</span></div>';
-          }).join('') + '<div class="rec" style="grid-template-columns:minmax(0,1fr) auto"><span class="sub2">勞點 ' + c.pts + ' 點' + (st.labor ? '・加給 ' + money(n.lb) : '') + (st.att ? '・全勤 ' + money(ATT_BONUS) : '') + '</span><span class="sub2">結算 ' + fmtDate(new Date(s.at)) + '</span></div></div>';
+          }).join('') + '<div class="rec" style="grid-template-columns:minmax(0,1fr) auto"><span class="sub2">勞點 ' + c.pts + ' 點' + (n.lb ? '・加給 ' + money(n.lb) : '') + (n.at ? '・全勤 ' + money(n.at) : '') + (s.pay ? '・扣 ' + money(s.pay.ins + s.pay.health + s.pay.welfare) : '') + '</span><span class="sub2">結算 ' + fmtDate(new Date(s.at)) + '</span></div></div>';
         }
         body += '<div style="height:8px"></div>';
       });
@@ -731,6 +729,12 @@ function netPay(c, st, ins, health, welfare) {
     $('#rComm').innerHTML = '抽成<br>' + money(c.total);
     $('#rNet').textContent = money(n.net);
     $('#rCalc').textContent = '抽成 ' + money(c.total) + ' ＋勞點 ' + money(n.lb) + ' ＋全勤 ' + money(n.at) + ' －團保 ' + money(ins) + ' －勞健保 ' + money(hl) + ' －福利金 ' + money(wf);
+    ['#tLabor', '#tAtt', '#tIns', '#tHealth', '#tWelfare', '#tFixed', '#btnSaveDed'].forEach(function (s) { $(s).disabled = pd.settled; });
+    var btn = $('#btnSettle'), note = $('#settleNote');
+    btn.textContent = '手動結算 ' + periodLabel(k);
+    if (pd.settled) { btn.disabled = true; note.textContent = '此期已於 ' + fmtDate(new Date(pd.snap.at)) + (pd.snap.auto ? ' 自動' : ' 手動') + '結算封存，實領 ' + money(pd.snap.pay ? pd.snap.pay.net : n.net) + '。'; }
+    else if (!pd.records.length) { btn.disabled = true; note.textContent = '目前沒有待結算課程'; }
+    else { btn.disabled = false; note.textContent = '結算會一併封存上面的勞點、全勤、扣項與實領金額。未手動結算時，將於 ' + fmtDate(settleTime(k)) + ' 早上 6:00 自動封存。'; }
   }
 
   function renderForm() {
@@ -969,13 +973,16 @@ function netPay(c, st, ins, health, welfare) {
 
     $('#btnSettle').addEventListener('click', function () {
       settleStep = 1; $('#sOk').textContent = '確認結算（1/2）';
-      $('#sBody').textContent = '即將結算 ' + periodLabel(viewKey()) + '，請點擊兩次「確認結算」才會正式封存，封存後不能再修改。';
+      var sk = $('#tSel').value, sp = periodData(sk), sc = calc(sp.records), sst = {labor: $('#tLabor').checked, att: $('#tAtt').checked};
+      var sn = netPay(sc, sst, num('#tIns'), num('#tHealth'), num('#tWelfare'));
+      $('#sBody').textContent = '即將結算 ' + periodLabel(sk) + '，實領 ' + money(sn.net) + '（含勞點、全勤與扣項）。請點擊兩次「確認結算」才會正式封存，封存後不能再修改。';
       $('#setVeil').hidden = false;
     });
     $('#sCancel').addEventListener('click', function () { settleStep = 0; $('#setVeil').hidden = true; });
     $('#sOk').addEventListener('click', function () {
       if (settleStep === 1) { settleStep = 2; this.textContent = '確認結算（2/2）'; return; }
-      var k = viewKey(); settleStep = 0; $('#setVeil').hidden = true;
+      var k = $('#tSel').value; settleStep = 0; $('#setVeil').hidden = true;
+      if (!state.settled[k]) saveDed();
       if (settlePeriod(k, false)) { renderAll(); toast(periodLabel(k) + ' 已結算封存'); }
     });
 
@@ -987,16 +994,20 @@ function netPay(c, st, ins, health, welfare) {
         st.labor = $('#tLabor').checked; st.att = $('#tAtt').checked; state.settings[k] = st; markCore(); renderTrial(); renderHist();
       });
     });
-    $('#btnSaveDed').addEventListener('click', function () {
+    function saveDed() {
       var k = $('#tSel').value, st = setting(k), f = state.fixed || {};
       var ins = num('#tIns'), hl = num('#tHealth');
+      st.labor = $('#tLabor').checked; st.att = $('#tAtt').checked;
       st.welfare = num('#tWelfare');
       if (f.on && !state.settled[k]) {
         var p2 = keyParts(k).p === 2, di = p2 ? (+f.ins || 0) : 0, dh = p2 ? (+f.health || 0) : 0;
         if (ins === di && hl === dh) { st.ov = false; st.ins = 0; st.health = 0; }
         else { st.ov = true; st.ins = ins; st.health = hl; }
       } else { st.ins = ins; st.health = hl; }
-      state.settings[k] = st; markCore(); loadTrialInputs(); renderTrial(); renderHist(); toast('已保存扣項');
+      state.settings[k] = st; markCore();
+    }
+    $('#btnSaveDed').addEventListener('click', function () {
+      saveDed(); loadTrialInputs(); renderTrial(); renderHist(); toast('已保存扣項');
     });
     $('#tFixed').addEventListener('change', function () {
       if (this.checked) {
