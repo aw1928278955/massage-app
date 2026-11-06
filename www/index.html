@@ -110,7 +110,8 @@ tr.none td { color: var(--mute); text-align: left; }
 
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .stat { border: 1px solid var(--line); border-radius: 16px; background: var(--card); padding: 12px 14px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.stat.main { background: var(--gold-wash); border-color: var(--gold); }
+.stat.main { background: var(--gold-wash); border-color: var(--gold); position: relative; }
+.stat .rt { position: absolute; top: 12px; right: 14px; color: var(--gold); font-weight: 700; font-size: 14px; }
 .stat .k { color: var(--mute); font-size: 13px; }
 .stat .v { font-size: 26px; font-weight: 900; line-height: 1.2; overflow-wrap: anywhere; }
 .stat .v small { font-size: 13px; font-weight: 500; color: var(--mute); margin-left: 4px; }
@@ -233,7 +234,7 @@ tr.none td { color: var(--mute); text-align: left; }
   </section>
 
   <section class="stats" aria-label="本期統計">
-    <div class="stat main"><span class="k">本期總抽成</span><span class="v" id="sTotal">$0</span><span class="n" id="sRate">目前採用 60% 抽成</span></div>
+    <div class="stat main"><span class="k">本期總抽成</span><span class="rt" id="sRate">60%</span><span class="v" id="sTotal">$0</span><span class="n" id="sAvg">日平均 $0</span></div>
     <div class="stat"><span class="k">本期課堂時數</span><span class="v" id="sHours">0<small>小時</small></span><span class="n" id="sMins">累積 0 分鐘</span></div>
     <div class="stat"><span class="k">服務堂數</span><span class="v" id="sQty">0<small>堂</small></span></div>
     <div class="stat"><span class="k">本期累計勞點數</span><span class="v" id="sPts">0<small>點</small></span></div>
@@ -657,7 +658,10 @@ function netPay(c, st, ins, health, welfare) {
   function renderStats() {
     var pd = periodData(viewKey()), c = calc(pd.records);
     $('#sTotal').textContent = money(c.total);
-    $('#sRate').textContent = c.rate === 65 ? '已達 75 小時，全期 65% 抽成' : '目前採用 60% 抽成';
+    $('#sRate').textContent = c.rate + '%';
+    var dset = {}; pd.records.forEach(function (r) { dset[r.date] = 1; });
+    var nd = Object.keys(dset).length;
+    $('#sAvg').textContent = '日平均 ' + money(nd ? Math.round(c.total / nd) : 0);
     $('#sHours').innerHTML = Math.floor(c.mins / 60) + '<small>小時</small>';
     $('#sMins').textContent = '累積 ' + c.mins + ' 分鐘（' + dur(c.mins) + '）';
     $('#sQty').innerHTML = c.qty + '<small>堂</small>';
